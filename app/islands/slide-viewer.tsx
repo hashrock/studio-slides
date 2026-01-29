@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'hono/jsx'
+import { useState, useEffect, useRef } from 'hono/jsx'
 
 interface SlideViewerProps {
   sections: string[]
@@ -6,10 +6,21 @@ interface SlideViewerProps {
 
 export default function SlideViewer({ sections }: SlideViewerProps) {
   const [currentIndex, setCurrentIndex] = useState(0)
+  const [prevIndex, setPrevIndex] = useState<number | null>(null)
+  const [isAnimating, setIsAnimating] = useState(false)
 
   const goToSlide = (index: number) => {
-    if (index < 0 || index >= sections.length) return
+    if (index < 0 || index >= sections.length || index === currentIndex || isAnimating) return
+
+    setIsAnimating(true)
+    setPrevIndex(currentIndex)
     setCurrentIndex(index)
+
+    // アニメーション完了後にprevIndexをクリア
+    setTimeout(() => {
+      setPrevIndex(null)
+      setIsAnimating(false)
+    }, 500)
   }
 
   const nextSlide = () => goToSlide(currentIndex + 1)
@@ -17,27 +28,29 @@ export default function SlideViewer({ sections }: SlideViewerProps) {
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (isAnimating) return
+
       switch (e.key) {
         case 'ArrowRight':
         case 'ArrowDown':
         case ' ':
         case 'PageDown':
           e.preventDefault()
-          setCurrentIndex(i => Math.min(i + 1, sections.length - 1))
+          goToSlide(currentIndex + 1)
           break
         case 'ArrowLeft':
         case 'ArrowUp':
         case 'PageUp':
           e.preventDefault()
-          setCurrentIndex(i => Math.max(i - 1, 0))
+          goToSlide(currentIndex - 1)
           break
         case 'Home':
           e.preventDefault()
-          setCurrentIndex(0)
+          goToSlide(0)
           break
         case 'End':
           e.preventDefault()
-          setCurrentIndex(sections.length - 1)
+          goToSlide(sections.length - 1)
           break
         case 'Escape':
           e.preventDefault()
@@ -48,11 +61,22 @@ export default function SlideViewer({ sections }: SlideViewerProps) {
 
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [sections.length])
+  }, [currentIndex, sections.length, isAnimating])
 
   const getSlideClass = (index: number) => {
-    if (index === currentIndex) return 'slide current'
-    if (index < currentIndex) return 'slide prev hidden'
+    // 現在のスライド
+    if (index === currentIndex) {
+      return 'slide current'
+    }
+    // アニメーション中の前のスライド
+    if (index === prevIndex) {
+      // 次へ移動した場合は左へ、前へ移動した場合は右へ
+      return currentIndex > prevIndex ? 'slide prev' : 'slide next'
+    }
+    // それ以外は非表示
+    if (index < currentIndex) {
+      return 'slide prev hidden'
+    }
     return 'slide next hidden'
   }
 
@@ -74,7 +98,7 @@ export default function SlideViewer({ sections }: SlideViewerProps) {
         <button
           class="nav-btn"
           onClick={prevSlide}
-          disabled={currentIndex === 0}
+          disabled={currentIndex === 0 || isAnimating}
           aria-label="Previous"
         >
           ←
@@ -82,7 +106,7 @@ export default function SlideViewer({ sections }: SlideViewerProps) {
         <button
           class="nav-btn"
           onClick={nextSlide}
-          disabled={currentIndex === sections.length - 1}
+          disabled={currentIndex === sections.length - 1 || isAnimating}
           aria-label="Next"
         >
           →
