@@ -54,7 +54,7 @@ export default function SlideViewer({ sections }: SlideViewerProps) {
           break
         case 'Escape':
           e.preventDefault()
-          window.location.href = '/slides'
+          window.location.href = '/'
           break
       }
     }
